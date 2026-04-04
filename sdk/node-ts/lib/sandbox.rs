@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use microsandbox::sandbox::{NetworkPolicy, PullPolicy, SandboxConfig as RustSandboxConfig};
-use microsandbox::{LogLevel, RegistryAuth};
+use microsandbox::{LogLevel, RegistryAuth as RustRegistryAuth};
 use microsandbox_network::policy::{
     Action, Destination, DestinationGroup, Direction, PortRange, Protocol, Rule,
 };
@@ -366,10 +366,28 @@ fn convert_config(config: SandboxConfig) -> Result<RustSandboxConfig> {
     if config.quiet_logs.unwrap_or(false) {
         builder = builder.quiet_logs();
     }
-    if let Some(ref auth) = config.registry_auth {
-        builder = builder.registry_auth(RegistryAuth::Basic {
-            username: auth.username.clone(),
-            password: auth.password.clone(),
+    if let Some(ref registry) = config.registry {
+        let auth = registry.auth.as_ref().map(|a| RustRegistryAuth::Basic {
+            username: a.username.clone(),
+            password: a.password.clone(),
+        });
+        let insecure = registry.insecure.unwrap_or(false);
+        let ca_certs_path = registry.ca_certs_path.clone();
+
+        builder = builder.registry(|mut r| {
+            if let Some(auth) = auth {
+                r = r.auth(auth);
+            }
+            if insecure {
+                r = r.insecure();
+            }
+            if let Some(ref path) = ca_certs_path {
+                // Read PEM file eagerly — errors are caught at build time.
+                if let Ok(data) = std::fs::read(path) {
+                    r = r.ca_certs(data);
+                }
+            }
+            r
         });
     }
     if let Some(ref ports) = config.ports {

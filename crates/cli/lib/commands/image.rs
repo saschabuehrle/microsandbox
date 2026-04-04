@@ -5,6 +5,7 @@ use std::time::Instant;
 use clap::{Args, Subcommand};
 use console::style;
 use microsandbox::image::Image;
+use microsandbox_image::{PullOptions, Registry};
 
 use crate::ui;
 
@@ -129,9 +130,16 @@ async fn run_pull_inner(
         .map_err(|e| anyhow::anyhow!("invalid image reference: {e}"))?;
 
     let auth = global.resolve_registry_auth(image_ref.registry())?;
-    let registry = microsandbox_image::Registry::with_auth(platform, cache, auth)?;
+    let tls = global.resolve_registry_tls(image_ref.registry()).await?;
+    let mut builder = Registry::builder(platform, cache)
+        .auth(auth)
+        .extra_ca_certs(tls.extra_ca_certs);
+    if tls.insecure {
+        builder = builder.insecure_registries(vec![image_ref.registry().to_string()]);
+    }
+    let registry = builder.build()?;
 
-    let options = microsandbox_image::PullOptions {
+    let options = PullOptions {
         pull_policy,
         force,
         ..Default::default()

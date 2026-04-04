@@ -1,0 +1,73 @@
+---
+title: Using Local Docker Images
+description: Use locally built Docker images with microsandbox via a local registry
+icon: "docker"
+---
+
+microsandbox pulls images from OCI-compatible registries. If you build an image locally with `docker build`, microsandbox can't access it directly from Docker's local store. The workaround is to run a local registry and push your image there.
+
+## Step 1: Start a local registry
+
+Run a local OCI registry on port 5050:
+
+```bash
+docker run -d -p 5050:5000 --name registry registry:2
+```
+
+<Tip>
+  Port 5000 is used by AirPlay on macOS. This guide uses port 5050 to avoid conflicts.
+</Tip>
+
+## Step 2: Configure microsandbox
+
+Since the local registry runs over plain HTTP, mark it as insecure in `~/.microsandbox/config.json`:
+
+```json
+{
+  "registries": {
+    "localhost:5050": {
+      "insecure": true
+    }
+  }
+}
+```
+
+See [Registry TLS](/images/overview#registry-tls) for more options, including custom CA certificates.
+
+## Step 3: Build, tag, and push your image
+
+Build your Docker image and tag it for the local registry:
+
+```bash
+docker build -t localhost:5050/my-image:latest .
+```
+
+If you already have an existing image, re-tag it:
+
+```bash
+docker tag my-image:latest localhost:5050/my-image:latest
+```
+
+Push to the local registry:
+
+```bash
+docker push localhost:5050/my-image:latest
+```
+
+## Step 4: Use it in microsandbox
+
+<CodeGroup>
+```rust Rust
+let sb = Sandbox::builder("worker")
+    .image("localhost:5050/my-image:latest")
+    .create()
+    .await?;
+```
+
+```typescript TypeScript
+const sb = await Sandbox.create({
+    name: "worker",
+    image: "localhost:5050/my-image:latest",
+})
+```
+</CodeGroup>

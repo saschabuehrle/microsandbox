@@ -135,6 +135,18 @@ pub struct SandboxConfig {
     #[serde(default, skip_serializing)]
     pub registry_auth: Option<RegistryAuth>,
 
+    /// Access the registry over plain HTTP instead of HTTPS.
+    ///
+    /// Only needed during pull — not persisted.
+    #[serde(skip)]
+    pub insecure: bool,
+
+    /// PEM-encoded CA root certificates to trust for registry connections.
+    ///
+    /// Only needed during pull — not persisted.
+    #[serde(skip)]
+    pub ca_certs: Vec<Vec<u8>>,
+
     /// Replace an existing sandbox with the same name during create.
     ///
     /// If the existing sandbox is still active, microsandbox stops it and
@@ -270,6 +282,8 @@ impl Default for SandboxConfig {
             pull_policy: PullPolicy::default(),
             policy: SandboxPolicy::default(),
             registry_auth: None,
+            insecure: false,
+            ca_certs: Vec::new(),
             replace_existing: false,
             resolved_rootfs_layers: Vec::new(),
         }
